@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MAHASAT CubeSat</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    
+    body {
+      font-family: 'Orbitron', sans-serif;
+      text-align: center;
+      background: linear-gradient(to bottom, #0d1b2a, #1e2a47);
+      backdrop-filter: blur(15px);
+      color: #fff;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      flex-direction: column;
+      overflow: hidden;
+      overflow-y: auto;
+    }
+
+    .stars {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      background: url('https://www.transparenttextures.com/patterns/stardust.png') repeat;
+      animation: move-stars 500s linear infinite;
+      z-index: -1;
+    }
+
+    @keyframes move-stars {
+      from { background-position: 0 0; }
+      to { background-position: 10000px 10000px; }
+    }
+
+    .logo {
+      position: absolute;
+      top: 20px;
+      width: 100px;
+      height: 100px;
+    }
+
+    .logo-left {
+      left: 30px;
+    }
+
+    .logo-right {
+      right: 30px;
+    }
+
+    .container-wrapper {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      flex-wrap: wrap;
+      width: 100%;
+      margin-top: 100px;
+    }
+
+    .container {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0px 0px 25px rgba(0, 188, 212, 0.6);
+      text-align: center;
+      width: 280px;
+      height: auto;
+      min-height: 150px;
+      transition: all 0.3s ease-in-out;
+    }
+
+    .container:hover {
+      transform: translateY(-10px);
+      box-shadow: 0px 0px 35px rgba(0, 188, 212, 1);
+    }
+
+    .data {
+      font-size: 1.6em;
+      font-weight: bold;
+      color: #00bcd4;
+    }
+
+    .info {
+      font-size: 1.4em;
+      color: #bbb;
+      margin-top: 10px;
+    }
+
+    .weather-container {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0px 0px 30px rgba(0, 188, 212, 0.6);
+      width: 350px;
+      height: 350px;
+      min-height: 400px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+
+    .buttons {
+      margin-top: 20px;
+    }
+
+    button {
+      font-family: 'Orbitron', sans-serif;
+      background-color: #00bcd4;
+      color: #fff;
+      border: none;
+      padding: 12px 30px;
+      margin: 5px;
+      cursor: pointer;
+      border-radius: 30px;
+      transition: background-color 0.3s ease-in-out;
+    }
+
+    button:hover {
+      background-color: #0097a7;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+  </style>
+  <!-- Load TensorFlow.js library -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.13.0/dist/tf.min.js"></script>
+</head>
+<body>
+  <div class="stars"></div>
+  
+  <img src="logo_left.png" alt="Left Logo" class="logo logo-left" />
+  <img src="logo_right.png" alt="Right Logo" class="logo logo-right" />
+  
+  <!-- Temperature Display Section -->
+  <div class="container-wrapper">
+    <div class="container">
+      <div class="data">Current Temperature</div>
+      <div class="info" id="current-temp">-- °C</div>
+    </div>
+    <div class="container">
+      <div class="data">Past Temperature</div>
+      <div class="info" id="past-temp">-- °C</div>
+    </div>
+  </div>
+  
+  <!-- Weather Outside Section -->
+  <div class="container-wrapper">
+    <div class="container">
+      <div class="data">Weather Outside</div>
+      <img src="weather.jpg" alt="Weather Image" width="200" height="270" style="border-radius: 10px; margin-top: 20px;" />
+    </div>
+  </div>
+  
+  <!-- Container for Image Upload and Prediction -->
+  <div class="container-wrapper">
+    <div class="container">
+      <div class="data">Upload Image for Prediction</div>
+      <input type="file" id="image-upload" accept="image/*" style="margin-top:20px;" />
+      <button onclick="predictTemperature()">Predict Temperature</button>
+      <div class="info" id="prediction-result">Prediction will appear here</div>
+    </div>
+  </div>
+  
+  <script>
+    // --- External Temperature Fetching using Open-Meteo (Free API) ---
+    // Open-Meteo is free and does not require an API key.
+    const weatherApiUrl = 'https://api.open-meteo.com/v1/forecast?latitude=25.276987&longitude=55.296249&current_weather=true';
+
+    function updateDubaiTemperature() {
+      const today = new Date().toISOString().split("T")[0]; // e.g., "2025-03-11"
+      const lastUpdate = localStorage.getItem("tempUpdateDate");
+
+      if (lastUpdate !== today) {
+        fetch(weatherApiUrl)
+          .then(response => response.json())
+          .then(data => {
+            if (data.current_weather && data.current_weather.temperature != null) {
+              const currentTemp = data.current_weather.temperature;
+              // If there is no previous value, use the current temperature.
+              let pastTemp = parseFloat(localStorage.getItem("currentTemp")) || currentTemp;
+              // Update localStorage with today's update.
+              localStorage.setItem("currentTemp", currentTemp);
+              localStorage.setItem("pastTemp", pastTemp);
+              localStorage.setItem("tempUpdateDate", today);
+              document.getElementById('current-temp').innerHTML = currentTemp.toFixed(2) + " °C";
+              document.getElementById('past-temp').innerHTML = pastTemp.toFixed(2) + " °C";
+            }
+          })
+          .catch(error => console.error("Error fetching temperature:", error));
+      } else {
+        // Use stored values if already updated today.
+        const currentTemp = parseFloat(localStorage.getItem("currentTemp"));
+        const pastTemp = parseFloat(localStorage.getItem("pastTemp"));
+        if (!isNaN(currentTemp)) {
+          document.getElementById('current-temp').innerHTML = currentTemp.toFixed(2) + " °C";
+        }
+        if (!isNaN(pastTemp)) {
+          document.getElementById('past-temp').innerHTML = pastTemp.toFixed(2) + " °C";
+        }
+      }
+    }
+    
+    // Call the function once when the page loads.
+    updateDubaiTemperature();
+
+    // --- TensorFlow.js Model Loading & Prediction for Image Upload ---
+    let model;  // Global variable for the TensorFlow.js model
+
+    tf.loadLayersModel('model/model.json')
+      .then(m => {
+         model = m;
+         console.log("Model loaded successfully in the browser.");
+      })
+      .catch(err => {
+         console.error("Error loading model:", err);
+      });
+
+    async function predictTemperature() {
+      const input = document.getElementById("image-upload");
+      if (input.files.length === 0) {
+        alert("Please select an image file!");
+        return;
+      }
+      if (!model) {
+        alert("Model not loaded yet. Please try again in a moment.");
+        return;
+      }
+      const file = input.files[0];
+      const reader = new FileReader();
+      reader.onload = function(e) {
+          const img = new Image();
+          img.onload = async function() {
+              const tensor = tf.browser.fromPixels(img)
+                  .resizeNearestNeighbor([224, 224])
+                  .toFloat()
+                  .div(tf.scalar(255))
+                  .expandDims();
+              const prediction = model.predict(tensor);
+              const predVal = prediction.dataSync()[0];
+              document.getElementById("prediction-result").innerHTML = predVal.toFixed(2) + " °C";
+          };
+          img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
