@@ -1,3 +1,6 @@
 venv/
 *.h5
 *.dylib
+*.h5
+venv/
+*.dylib
